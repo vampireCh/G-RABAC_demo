@@ -1,0 +1,243 @@
+////////////////////////////////////////////////////////////////////////
+// 1. 清空图数据库（保留）
+////////////////////////////////////////////////////////////////////////
+MATCH (n)
+DETACH DELETE n;
+
+////////////////////////////////////////////////////////////////////////
+// 2. （针对特定 ID的修改与查询语句、按需使用，在这里可以跳过）
+////////////////////////////////////////////////////////////////////////
+/*
+-- 原脚本中这些已去除:
+MATCH ()-[r]->()
+WHERE ID(r) = x
+DELETE r;
+
+MATCH (n)-[r]->(m)
+WHERE ID(n) = 526 AND ID(m) = 549
+DELETE r;
+
+MATCH (n)
+WHERE ID(n)=1234
+DELETE n;
+
+MATCH (p:Person {name:'Charlie'})
+SET p.age=40, p.city='New York'
+RETURN p;
+
+MATCH (n)
+WHERE ID(n)=123
+REMOVE n.age
+RETURN n;
+*/
+/*开始创建设计与开发文档里的实例策略p1、p2、p3.=,按照顺序在neo4j中运行以下命令*/
+////////////////////////////////////////////////////////////////////////
+// 3. 创建 Policy 节点
+////////////////////////////////////////////////////////////////////////
+CREATE (p1:Policy {name: 'Policy1'}),
+       (p2:Policy {name: 'Policy2'}),
+       (p3:Policy {name: 'Policy3'});
+
+////////////////////////////////////////////////////////////////////////
+// 4. 创建 ObjectAttribute 节点
+
+////////////////////////////////////////////////////////////////////////
+CREATE (oa1:ObjectAttribute {name: 'EntertainmentDevices'}),
+       (oa2:ObjectAttribute {name: 'AlexDevices'});
+
+////////////////////////////////////////////////////////////////////////
+// 5. 创建 Operation 节点 (TurnON, TurnOFF)
+////////////////////////////////////////////////////////////////////////
+CREATE (op1:Operation {name: 'TurnON'}),
+       (op2:Operation {name: 'TurnOFF'});
+
+////////////////////////////////////////////////////////////////////////
+// 6. 创建 SubPolicy 和 Condition 节点
+////////////////////////////////////////////////////////////////////////
+CREATE (sp1:SubPolicy {name: 'SubPolicy1', type: 'time'}),
+       (sp2:SubPolicy {name: 'SubPolicy2', type: 'user'}),
+       (sp3:SubPolicy {name: 'SubPolicy3', type: 'user'});
+
+CREATE (c1:Context {index: 'time_0', key：'date', value: 'Weekends'}),
+       (c2:Context {index: 'time_1', key: 'time', value: '17:00-19:00'}),
+       (c3:Context {index: 'user_0', key: 'user', age: '>9'}),
+       (c4:Context {index: 'user_1', key：'user', friend: 'John'}),
+       (c5:Context {index: 'user_0', key: 'key', Spouse: 'Alex'});
+
+////////////////////////////////////////////////////////////////////////
+// 7. 将 SubPolicy 与 Context 关联
+////////////////////////////////////////////////////////////////////////
+MATCH (sp1:SubPolicy {name: 'SubPolicy1', type: 'time'}),
+      (c1:Context index: 'time_0', key：'date', value: 'Weekends'}),
+      (c2:Context {index: 'time_1', key: 'time', value: '17:00-19:00'}),
+      (sp2:SubPolicy {name: 'SubPolicy2', type: 'user'}),
+      (c3:Context {index: 'user_0', key: 'user', age: '>9'}),
+      (c4:Context {index: 'user_1', key：'user', friend: 'John'}),
+      (sp3:SubPolicy {name: 'SubPolicy3', type: 'user'}),
+      (c5:Context {index: 'user_0', key: 'key', Spouse: 'Alex'})
+MERGE (sp1)-[:CONDITION]->(c1)
+MERGE (sp1)-[:CONDITION]->(c2)
+MERGE (sp2)-[:CONDITION]->(c3)
+MERGE (sp2)-[:CONDITION]->(c4)
+MERGE (sp3)-[:CONDITION]->(c5);
+
+////////////////////////////////////////////////////////////////////////
+// 8. 创建 Bob 及其属性 BobOwned -> Policy1 -> AlexDevices
+////////////////////////////////////////////////////////////////////////
+CREATE (sub:Subject {username: 'Bob'});
+
+MATCH (sub:Subject {username: 'Bob'})
+CREATE (sa:SubjectAttribute {name: 'BobOwned'})
+CREATE (sub)-[:HAS_ATTRIBUTE]->(sa);
+
+MATCH (sa:SubjectAttribute {name: 'BobOwned'}),
+      (p:Policy {name: 'Policy1'}),
+      (oa:ObjectAttribute {name: 'AlexDevices'})
+CREATE (sa)-[:HAS]->(p),
+       (p)-[:APPLIED_TO]->(oa);
+
+////////////////////////////////////////////////////////////////////////
+// 9. 创建 Alex 及其属性 AlexOwned -> Policy2 -> AlexDevices
+////////////////////////////////////////////////////////////////////////
+CREATE (sub:Subject {username: 'Alex'});
+
+MATCH (sub:Subject {username: 'Alex'})
+CREATE (sa:SubjectAttribute {name: 'AlexOwned'})
+CREATE (sub)-[:HAS_ATTRIBUTE]->(sa);
+
+MATCH (sa:SubjectAttribute {name: 'AlexOwned'}),
+      (p:Policy {name: 'Policy2'}),
+      (oa:ObjectAttribute {name: 'AlexDevices'})
+CREATE (sa)-[:HAS]->(p),
+       (p)-[:APPLIED_TO]->(oa);
+
+////////////////////////////////////////////////////////////////////////
+// 10. 为 Policy1、Policy2 与操作 (TurnON, TurnOFF) 建立关系
+////////////////////////////////////////////////////////////////////////
+MATCH (p1:Policy {name: 'Policy1'}),
+      (op1:Operation {name: 'TurnON'}),
+      (op2:Operation {name: 'TurnOFF'})
+CREATE (p1)-[:ACT_CON]->(op1),
+       (p1)-[:ACT_CON]->(op2);
+
+MATCH (p2:Policy {name: 'Policy2'}),
+      (op1:Operation {name: 'TurnON'}),
+      (op2:Operation {name: 'TurnOFF'})
+CREATE (p2)-[:ACT_CON]->(op1),
+       (p2)-[:ACT_CON]->(op2);
+
+////////////////////////////////////////////////////////////////////////
+// 11. 创建 Object 节点
+////////////////////////////////////////////////////////////////////////
+CREATE (obj1:Object {name: 'SmartDoor'}),
+       (obj2:Object {name: 'SmartLight'}),
+       (obj3:Object {name: 'SmartTV'}),
+       (obj4:Object {name: 'PlayStation'});
+
+MATCH (obj:Object {name: 'SmartDoor'}),
+      (oa2:ObjectAttribute {name: 'AlexDevices'})
+CREATE (obj)-[:HAS_ATTRIBUTE]->(oa2);
+
+MATCH (obj:Object {name: 'SmartLight'}),
+      (oa2:ObjectAttribute {name: 'AlexDevices'})
+CREATE (obj)-[:HAS_ATTRIBUTE]->(oa2);
+
+MATCH (obj:Object {name: 'SmartTV'}),
+      (oa2:ObjectAttribute {name: 'AlexDevices'})
+CREATE (obj)-[:HAS_ATTRIBUTE]->(oa2);
+
+////////////////////////////////////////////////////////////////////////
+// 12. 给 PlayStation 和 SmartTV 设置属性 -> EntertainmentDevices
+////////////////////////////////////////////////////////////////////////
+MATCH (obj:Object {name: 'PlayStation'}),
+      (oa1:ObjectAttribute {name: 'EntertainmentDevices'})
+CREATE (obj)-[:HAS_ATTRIBUTE]->(oa1);
+
+MATCH (obj:Object {name: 'SmartTV'}),
+      (oa1:ObjectAttribute {name: 'EntertainmentDevices'})
+CREATE (obj)-[:HAS_ATTRIBUTE]->(oa1);
+
+////////////////////////////////////////////////////////////////////////
+// 13. 创建 John, Jullet, Sue，并给他们 Children, Guest 属性
+////////////////////////////////////////////////////////////////////////
+CREATE (sub1:Subject {username: 'John', age: 12}),
+       (sub2:Subject {username: 'Jullet', age: 12}),
+       (sub3:Subject {username: 'Sue', age: 12, friend:'John'});
+
+CREATE (sa3:SubjectAttribute {name: 'Children'});
+CREATE (sa4:SubjectAttribute {name: 'Guest'});
+
+MATCH (sub1:Subject {username: 'John', age: 12}),
+      (sub2:Subject {username: 'Jullet', age: 12}),
+      (sa3:SubjectAttribute {name: 'Children'})
+CREATE (sub2)-[:HAS_ATTRIBUTE]->(sa3),
+       (sub1)-[:HAS_ATTRIBUTE]->(sa3);
+
+MATCH (sub3:Subject {username: 'Sue', age: 12}),
+      (sa4:SubjectAttribute {name: 'Guest'})
+CREATE (sub3)-[:HAS_ATTRIBUTE]->(sa4);
+
+////////////////////////////////////////////////////////////////////////
+// 14. SubPolicy 与 Policy3 建立关系
+////////////////////////////////////////////////////////////////////////
+MATCH (sp1:SubPolicy {name: 'SubPolicy1', type: 'time'}),
+      (p3:Policy {name: 'Policy3'})
+CREATE (p3)-[:HAS]->(sp1);
+
+MATCH (sp2:SubPolicy {name: 'SubPolicy2'}),
+      (p3:Policy {name: 'Policy3'})
+CREATE (p3)-[:HAS]->(sp2);
+
+MATCH (sp3:SubPolicy {name: 'SubPolicy3'}),
+      (p1:Policy {name: 'Policy1'})
+CREATE (p1)-[:HAS]->(sp3);
+
+MATCH (sa4:SubjectAttribute {name: 'Guest'}),
+      (p3:Policy {name: 'Policy3'})
+CREATE (sa4)-[:HAS]->(p3);
+
+////////////////////////////////////////////////////////////////////////
+// 15. Policy3 与 TurnON、TurnOFF
+////////////////////////////////////////////////////////////////////////
+MATCH (p3:Policy {name: 'Policy3'}),
+      (op1:Operation {name: 'TurnON'}),
+      (op2:Operation {name: 'TurnOFF'})
+CREATE (p3)-[:ACT_CON]->(op1),
+       (p3)-[:ACT_CON]->(op2);
+
+////////////////////////////////////////////////////////////////////////
+// 16. 将 Policy3 应用于 EntertainmentDevices
+////////////////////////////////////////////////////////////////////////
+MATCH (p3:Policy {name: 'Policy3'}),
+      (oa1:ObjectAttribute {name: 'EntertainmentDevices'})
+CREATE (p3)-[:APPLIED_TO]->(oa1);
+
+////////////////////////////////////////////////////////////////////////
+// 17. Bob 配偶设为 Alex
+////////////////////////////////////////////////////////////////////////
+MATCH (sub:Subject {username: 'Bob'})
+SET sub.spouse = 'Alex'
+RETURN sub;
+
+////////////////////////////////////////////////////////////////////////
+// 18. John 与 JohnOwned 
+////////////////////////////////////////////////////////////////////////
+MATCH (sa:SubjectAttribute {name:'JohnOwned'}),
+      (s:Subject {username:'John'})
+CREATE (s)-[:HAS_ATTRIBUTE]->(sa);
+
+////////////////////////////////////////////////////////////////////////
+// 19. 创建 Unlock 操作并关联到 Policy3
+////////////////////////////////////////////////////////////////////////
+CREATE (op3:Operation {name: 'Unlock'});
+
+MATCH (op3:Operation {name: 'Unlock'}),
+      (p3:Policy {name:'Policy3'})
+CREATE (p3)-[:ACT_CON]->(op3);
+
+////////////////////////////////////////////////////////////////////////
+// 20.Sue的朋友设置为John,年龄设置为12
+////////////////////////////////////////////////////////////////////////
+MATCH (sub:Subject {username: 'Sue'})
+SET sub.friend = 'John',sub.age='12'
+RETURN sub;
